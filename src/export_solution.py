@@ -11,11 +11,13 @@ def build_chromosome(commands, chromosome_length):
         chromosome += [int(cube), int(move)]
     chromosome.append(-1)
 
-    # Kromozomi duhet të ketë gjatësi fikse; pjesa pas -1 të parë shpërfillet nga vlerësimi
-    padding = chromosome_length - len(chromosome) - 1
-    assert padding >= 0, "Shumë komanda për këtë rast"
-    chromosome += [0] * padding
-    chromosome.append(-1)
+    # Nëse ka vend të mbetur, e plotësoj me zero dhe një -1 të fundit.
+    # Kur komandat janë në kufi, -1 e parë është tashmë e fundit.
+    if len(chromosome) < chromosome_length:
+        chromosome += [0] * (chromosome_length - len(chromosome) - 1)
+        chromosome.append(-1)
+
+    assert len(chromosome) == chromosome_length, "Shumë komanda për këtë rast"
     return np.array(chromosome)
 
 

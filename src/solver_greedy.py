@@ -31,9 +31,22 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0):
         return np.abs(arr - pos).sum(axis=1).min()
 
     commands = []
+
+    def score_now():
+        # Pjesa e formulës zyrtare që ndryshon: kubët e saktë dhe numri i komandave
+        return 0.9 * correct.sum() / len(types) - 0.1 * len(commands) / problem["max_cmds"]
+
+    # Kujtoj gjendjen më të mirë, sepse komandat e fundit mund ta ulin rezultatin
+    best_score = score_now()
+    best_len = 0
+
     for attempt in range(max_attempts):
         if attempt % 2000 == 0:
             print(f"  prova {attempt}: {len(commands)} komanda, {int(correct.sum())} kuba te sakte")
+
+        if score_now() > best_score:
+            best_score = score_now()
+            best_len = len(commands)
 
         if len(commands) >= problem["max_cmds"]:
             break
@@ -71,4 +84,9 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0):
             else:
                 commands.append((c, m ^ 1))
 
-    return commands
+    # Kontroll i fundit, sepse cikli i kontrollon rezultatin vetëm në fillim të çdo prove
+    if score_now() > best_score:
+        best_score = score_now()
+        best_len = len(commands)
+
+    return commands[:best_len]
