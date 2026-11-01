@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0):
+def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0.0):
     # Importohet këtu sepse load_problem() duhet ta ketë rregulluar sys.path më parë
     from programmable_cubes_UDP import ProgrammableCubes
 
@@ -54,6 +54,24 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0):
         if len(wrong) == 0:
             break
 
+        # Tronditje: ndonjëherë lëviz një kub që është tashmë në vend, që të lirojë rrugën
+        if shake_prob > 0 and correct.any() and rng.random() < shake_prob:
+            right = np.where(correct)[0]
+            c = int(rng.choice(right))
+            m = int(rng.integers(6))
+            t = types[c]
+            old = tuple(cubes.cube_position[c].tolist())
+            if cubes.apply_single_update_step(c, m) == 1:
+                commands.append((c, m))
+                free[t].add(old)
+                new = tuple(cubes.cube_position[c].tolist())
+                if new in free[t]:
+                    # Kaloi nga një synim në një synim tjetër të lirë të llojit të vet
+                    free[t].discard(new)
+                else:
+                    correct[c] = False
+            continue
+
         c = int(rng.choice(wrong))
         m = int(rng.integers(6))
         t = types[c]
@@ -82,9 +100,9 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0):
             if np.array_equal(cubes.cube_position[c], old):
                 commands.pop()
             else:
-                commands.append((c, m ^ 1))
+                commands.append((c, m ^ 1
 
-    # Kontroll i fundit, sepse cikli i kontrollon rezultatin vetëm në fillim të çdo prove
+    # Kontroll i fundit, sepse cikli e kontrollon rezultatin vetëm në fillim të çdo prove
     if score_now() > best_score:
         best_score = score_now()
         best_len = len(commands)
