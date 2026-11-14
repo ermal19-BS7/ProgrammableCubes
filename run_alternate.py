@@ -65,7 +65,7 @@ def main():
     p.add_argument("--patience", type=int, default=2)
     p.add_argument("--slack", type=int, default=4)
     p.add_argument("--budget", type=int, default=3000)
-    p.add_argument("--order", default="near", choices=["near", "inner", "random"])
+    p.add_argument("--order", default="near", choices=["near", "inner", "random", "deep"])
     args = p.parse_args()
 
     problem = load_problem(args.case)
