@@ -1,13 +1,17 @@
 import numpy as np
 
 
-def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0.0):
+def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0.0, prefix=None, truncate=True):
     # Importohet këtu sepse load_problem() duhet ta ketë rregulluar sys.path më parë
     from programmable_cubes_UDP import ProgrammableCubes
 
     rng = np.random.default_rng(seed)
     cubes = ProgrammableCubes(problem["initial_config"])
     types = problem["initial_types"]
+
+    prefix = list(prefix) if prefix else []
+    for c, m in prefix:
+        cubes.apply_single_update_step(c, m)
 
     targets = []
     free = []
@@ -30,7 +34,7 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0
         arr = np.array(list(free[t]))
         return np.abs(arr - pos).sum(axis=1).min()
 
-    commands = []
+    commands = list(prefix)
 
     def score_now():
         # Pjesa e formulës zyrtare që ndryshon: kubët e saktë dhe numri i komandave
@@ -38,7 +42,7 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0
 
     # Kujtoj gjendjen më të mirë, sepse komandat e fundit mund ta ulin rezultatin
     best_score = score_now()
-    best_len = 0
+    best_len = len(commands)
 
     for attempt in range(max_attempts):
         if attempt % 2000 == 0:
@@ -100,11 +104,13 @@ def solve_greedy(problem, max_attempts=2000, seed=0, keep_prob=0.0, shake_prob=0
             if np.array_equal(cubes.cube_position[c], old):
                 commands.pop()
             else:
-                commands.append((c, m ^ 1
+                commands.append((c, m ^ 1))
 
     # Kontroll i fundit, sepse cikli e kontrollon rezultatin vetëm në fillim të çdo prove
     if score_now() > best_score:
         best_score = score_now()
         best_len = len(commands)
 
-    return commands[:best_len]
+    if truncate:
+        return commands[:best_len]
+    return commands
