@@ -17,26 +17,38 @@ def quiet(fn, *a, **k):
         return fn(*a, **k)
 
 
-def run_one(problem, args, seed, t0):
+def run_one(problem, args, seed, t0, state):
     best = {"fitness": None, "commands": None, "label": None}
 
     def consider(label, commands):
         r = evaluate(problem, commands)
         f = float(r["fitness"])
-        print(f"  {label}: {r['correct']} kuba, {r['commands']} komanda, fitness {f:.4f}, {time.time() - t0:.0f}s")
+        mark = ""
+        if f < state["fit"]:
+            state["fit"] = f
+            with open(state["path"], "w") as fh:
+                json.dump([list(c) for c in commands], fh)
+            export_solution(problem, commands, "progress")
+            mark = "  (ruajtur)"
+        print(f"  {label}: {r['correct']} kuba, {r['commands']} komanda, fitness {f:.4f}, {time.time() - t0:.0f}s{mark}")
         if best["fitness"] is None or f < best["fitness"]:
             best["fitness"] = f
             best["commands"] = list(commands)
             best["label"] = label
         return r
 
-    commands = quiet(solve_planned, problem, args.slack, args.budget, 120, None, 3, args.order, seed)
-    r = consider("planifikues 0", commands)
+    if args.resume and os.path.exists(state["path"]):
+        with open(state["path"]) as fh:
+            commands = [tuple(c) for c in json.load(fh)]
+        r = consider("fillimi (nga skedari i ruajtur)", commands)
+    else:
+        commands = quiet(solve_planned, problem, args.slack, args.budget, 120, None, 3, args.order, seed)
+        r = consider("planifikues 0", commands)
     last_correct = r["correct"]
     stalls = 0
 
     for k in range(args.rounds):
-        commands = quiet(solve_greedy, problem, args.burst, seed + k, args.keep, 0.0, commands, False)
+        commands = quiet(solve_greedy, problem, args.burst, seed + k, args.keep, args.shake, commands, False)
         consider(f"rafal greedy {k + 1}", commands)
         commands = quiet(solve_planned, problem, args.slack, args.budget, 120, commands, 3, args.order, seed + k)
         r = consider(f"planifikues {k + 1}", commands)
@@ -60,39 +72,36 @@ def main():
     p.add_argument("--burst", type=int, default=3000)
     p.add_argument("--final", type=int, default=5000)
     p.add_argument("--keep", type=float, default=0.2)
+    p.add_argument("--shake", type=float, default=0.0)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--seeds", type=int, default=1)
     p.add_argument("--patience", type=int, default=2)
     p.add_argument("--slack", type=int, default=4)
     p.add_argument("--budget", type=int, default=3000)
-    p.add_argument("--order", default="near", choices=["near", "inner", "random", "deep"])
+    p.add_argument("--order", default="near")
+    p.add_argument("--resume", action="store_true")
     args = p.parse_args()
 
     problem = load_problem(args.case)
     t0 = time.time()
-    overall = None
-    for s in range(args.seed, args.seed + args.seeds):
-        print(f"seed {s} (rend: {args.order})")
-        best = run_one(problem, args, s * 1000, t0)
-        print(f"  -> me e mira: {best['label']}, fitness {best['fitness']:.4f}")
-        if overall is None or best["fitness"] < overall[0]:
-            overall = (best["fitness"], s, best["commands"])
-
-    print(f"REZULTATI: fitness {overall[0]:.4f} (seed {overall[1]})")
 
     path = os.path.join(PROJECT_ROOT, "solutions", f"{args.case}_best_commands.json")
+    state = {"path": path, "fit": 0.0}
     if os.path.exists(path):
-        with open(path) as f:
-            old = [tuple(c) for c in json.load(f)]
-        old_fit = float(evaluate(problem, old)["fitness"])
-        if old_fit <= overall[0]:
-            print(f"Rezultati i ruajtur më parë ({old_fit:.4f}) është më i mirë ose i barabartë: nuk e prek.")
-            return
+        with open(path) as fh:
+            saved = [tuple(c) for c in json.load(fh)]
+        state["fit"] = float(evaluate(problem, saved)["fitness"])
+        print(f"Rezultati i ruajtur: {state['fit']:.4f}")
 
-    export_solution(problem, overall[2], f"alternate_{args.order}_b{args.burst}_s{overall[1]}")
-    with open(path, "w") as f:
-        json.dump(overall[2], f)
-    print("Komandat u ruajtën te", path)
+    overall = None
+    for s in range(args.seed, args.seed + args.seeds):
+        print(f"seed {s} (rend: {args.order}, shake: {args.shake}, resume: {args.resume})")
+        best = run_one(problem, args, s * 1000, t0, state)
+        print(f"  -> me e mira: {best['label']}, fitness {best['fitness']:.4f}")
+        if overall is None or best["fitness"] < overall[0]:
+            overall = (best["fitness"], s)
+
+    print(f"REZULTATI: fitness {overall[0]:.4f}; më i miri i ruajtur: {state['fit']:.4f}")
 
 
 if __name__ == "__main__":
