@@ -1,6 +1,8 @@
-// Zgjidhja e kundert per Programmable Cubes (ESA SpOC 3). Kompilim: g++ -O2 -o reverse_solver reverse_solver.cpp
+// Zgjidhja e kundert per Programmable Cubes (ESA SpOC 3).
+// Kompilim: g++ -O2 -o reverse_solver reverse_solver.cpp
+// Perdoret nga run_cpp.py per JWST dhe Enterprise.
 #include <bits/stdc++.h>
-
+// generated
 static const int SURR0[24][3]={{-2,2,0},{-1,2,0},{0,2,0},{1,2,0},{2,2,0},{-2,1,0},{-1,1,0},{0,1,0},{1,1,0},{2,1,0},{-2,0,0},{-1,0,0},{1,0,0},{2,0,0},{-2,-1,0},{-1,-1,0},{0,-1,0},{1,-1,0},{2,-1,0},{-2,-2,0},{-1,-2,0},{0,-2,0},{1,-2,0},{2,-2,0}};
 static const int SURR1[24][3]={{0,-2,2},{0,-1,2},{0,0,2},{0,1,2},{0,2,2},{0,-2,1},{0,-1,1},{0,0,1},{0,1,1},{0,2,1},{0,-2,0},{0,-1,0},{0,1,0},{0,2,0},{0,-2,-1},{0,-1,-1},{0,0,-1},{0,1,-1},{0,2,-1},{0,-2,-2},{0,-1,-2},{0,0,-2},{0,1,-2},{0,2,-2}};
 static const int SURR2[24][3]={{-2,0,2},{-1,0,2},{0,0,2},{1,0,2},{2,0,2},{-2,0,1},{-1,0,1},{0,0,1},{1,0,1},{2,0,1},{-2,0,0},{-1,0,0},{1,0,0},{2,0,0},{-2,0,-1},{-1,0,-1},{0,0,-1},{1,0,-1},{2,0,-1},{-2,0,-2},{-1,0,-2},{0,0,-2},{1,0,-2},{2,0,-2}};
@@ -9,6 +11,8 @@ static const int PATOCC[16][6]={{7,8,-1,-1,-1,-1},{6,11,-1,-1,-1,-1},{15,16,-1,-
 static const int PATEMP[16][6]={{12,16,17,-1,-1,-1},{7,8,12,-1,-1,-1},{6,7,11,-1,-1,-1},{11,15,16,-1,-1,-1},{11,15,16,-1,-1,-1},{12,16,17,-1,-1,-1},{7,8,12,-1,-1,-1},{6,7,11,-1,-1,-1},{14,15,10,11,6,7},{8,9,12,13,16,17},{12,6,7,8,1,2},{11,15,16,17,21,22},{11,6,7,8,2,3},{12,15,16,17,20,21},{17,18,12,13,7,8},{5,6,10,11,15,16}};
 static const int PATDIR[2][8]={{0,1,2,3,8,9,10,11},{4,5,6,7,12,13,14,15}};
 static const int DISP[48][3]={{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},{-1,0,0},{0,-1,0},{1,0,0},{0,1,0},{-1,-1,0},{1,1,0},{-1,1,0},{1,-1,0},{1,1,0},{-1,-1,0},{1,-1,0},{-1,1,0},{0,1,0},{0,0,1},{0,-1,0},{0,0,-1},{0,-1,0},{0,0,-1},{0,1,0},{0,0,1},{0,-1,-1},{0,1,1},{0,-1,1},{0,1,-1},{0,1,1},{0,-1,-1},{0,1,-1},{0,-1,1},{1,0,0},{0,0,1},{-1,0,0},{0,0,-1},{-1,0,0},{0,0,-1},{1,0,0},{0,0,1},{-1,0,-1},{1,0,1},{-1,0,1},{1,0,-1},{1,0,1},{-1,0,-1},{1,0,-1},{-1,0,1}};
+
+
 
 using namespace std;
 typedef array<int,3> P3;
@@ -170,7 +174,7 @@ map<P3,double> connRank(double noise,mt19937&rng,map<P3,int>&tcount_unused){
     key[q]=-(double)cc.size()*10-nbc*0.5+noise*U(rng); }
   return key;
 }
-set<int> evictedS;
+set<int> evictedS; set<int> prioS;
 
 template<class OCC>
 bool reach_occ(int w,const P3&start,OCC occ,int maxst){
@@ -201,18 +205,7 @@ bool bfs_park(int c,const P3&ref,int minDist,int maxd,int maxst,vector<int>&path
 struct Applied{int c; vector<int> path;};
 bool dig(int w,int maxSub,int rad,int parkDist,int maxd,int maxst,vector<pair<int,int>>&hist){
   P3 pw0=S.pos[w]; int tw=pb.itype[w];
-  vector<int> cand; int rad2=getenv("DIGRAD2")?atoi(getenv("DIGRAD2")):2;
-  auto dist=[&](int n){ int d=l1(S.pos[n],pw0); if(d>rad) d=1000; for(auto&f:freeT[tw]){ int e=l1(S.pos[n],f); if(e<=rad2) d=min(d,e);} return d; };
-  for(int n=0;n<N;n++){ if(n==w)continue; if(dist(n)<1000)cand.push_back(n);} 
-  sort(cand.begin(),cand.end(),[&](int a,int b){return dist(a)<dist(b);});
-  if((int)cand.size()>(getenv("DIGM")?atoi(getenv("DIGM")):40))cand.resize(getenv("DIGM")?atoi(getenv("DIGM")):40);
-  int M=cand.size();
-  for(int sz=1;sz<=maxSub;sz++){
-    vector<int> idx(sz); function<bool(int,int)> rec=[&](int start,int depth)->bool{
-      if(depth==sz){
-        set<int> rem; for(int i:idx)rem.insert(cand[i]);
-        auto occ=[&](int x,int y,int z){int a=S.at(x,y,z);return a>=0&&a!=w&&!rem.count(a);};
-        if(!reach_occ(w,pw0,occ,100000))return false;
+  auto tryRem=[&](const set<int>&rem)->bool{
         // execute
         vector<char> corr0=correct; vector<set<P3>> free0=freeT; size_t cmd0=cmds.size(); vector<Applied> applied; map<int,P3> oldpos;
         auto rollback=[&](){ for(int i=(int)applied.size()-1;i>=0;i--){ for(int j=(int)applied[i].path.size()-1;j>=0;j--){ if(!S.move(applied[i].c,applied[i].path[j]^1)){fprintf(stderr,"rollback fail\n");exit(1);} cmds.pop_back(); } } correct=corr0; freeT=free0; };
@@ -231,6 +224,32 @@ bool dig(int w,int maxSub,int rad,int parkDist,int maxd,int maxst,vector<pair<in
           for(int m:pr){S.move(r,m);cmds.push_back({r,m});} applied.push_back({r,pr}); freeT[pb.itype[r]].erase(S.pos[r]); correct[r]=1; }
         hist.push_back({(int)cmds.size(),ncorrect()});
         return true;
+  };
+  if(getenv("DIGBIG")){ int RB=atoi(getenv("DIGBIG")); int RB2=getenv("DIGBIG2")?atoi(getenv("DIGBIG2")):RB; vector<int> cb;
+    for(int n=0;n<N;n++){ if(n==w)continue; int dd=l1(S.pos[n],pw0); bool in=dd<=RB; for(auto&f:freeT[tw]) if(l1(S.pos[n],f)<=RB2) in=true; if(in)cb.push_back(n);} 
+    set<int> rem(cb.begin(),cb.end());
+    auto reachWith=[&](const set<int>&r){ auto occ=[&](int x,int y,int z){int a=S.at(x,y,z);return a>=0&&a!=w&&!r.count(a);}; return reach_occ(w,pw0,occ,100000); };
+    fprintf(stderr,"big w=%d ball=%zu reach=%d\n",w,rem.size(),(int)reachWith(rem));
+    if(reachWith(rem)){
+      sort(cb.begin(),cb.end(),[&](int a,int b){return l1(S.pos[a],pw0)>l1(S.pos[b],pw0);});
+      for(int n:cb){ set<int> r2=rem; r2.erase(n); if(reachWith(r2)) rem=r2; }
+      fprintf(stderr,"  min rem=%zu\n",rem.size());
+      if((int)rem.size()<=atoi(getenv("DIGBIGMAX")?getenv("DIGBIGMAX"):"12") && tryRem(rem)) return true;
+    }
+  }
+  vector<int> cand; int rad2=getenv("DIGRAD2")?atoi(getenv("DIGRAD2")):2;
+  auto dist=[&](int n){ int d=l1(S.pos[n],pw0); if(d>rad) d=1000; for(auto&f:freeT[tw]){ int e=l1(S.pos[n],f); if(e<=rad2) d=min(d,e);} return d; };
+  for(int n=0;n<N;n++){ if(n==w)continue; if(dist(n)<1000)cand.push_back(n);} 
+  sort(cand.begin(),cand.end(),[&](int a,int b){return dist(a)<dist(b);});
+  if((int)cand.size()>(getenv("DIGM")?atoi(getenv("DIGM")):40))cand.resize(getenv("DIGM")?atoi(getenv("DIGM")):40);
+  int M=cand.size();
+  for(int sz=1;sz<=maxSub;sz++){
+    vector<int> idx(sz); function<bool(int,int)> rec=[&](int start,int depth)->bool{
+      if(depth==sz){
+        set<int> rem; for(int i:idx)rem.insert(cand[i]);
+        auto occ=[&](int x,int y,int z){int a=S.at(x,y,z);return a>=0&&a!=w&&!rem.count(a);};
+        if(!reach_occ(w,pw0,occ,getenv("REACHMS")?atoi(getenv("REACHMS")):100000))return false;
+        return tryRem(rem);
       }
       for(int i=start;i<M;i++){ idx[depth]=i; if(rec(i+1,depth+1))return true; }
       return false; };
@@ -238,11 +257,113 @@ bool dig(int w,int maxSub,int rad,int parkDist,int maxd,int maxst,vector<pair<in
   }
   return false;
 }
+bool relay(int w,int maxd,int maxst,vector<pair<int,int>>&hist){
+  int t=pb.itype[w]; int RM=getenv("RELM")?atoi(getenv("RELM")):40; int RQ=getenv("RELQ")?atoi(getenv("RELQ")):6;
+  vector<P3> qs(freeT[t].begin(),freeT[t].end()); sort(qs.begin(),qs.end(),[&](const P3&a,const P3&b){return l1(a,S.pos[w])<l1(b,S.pos[w]);}); if((int)qs.size()>RQ)qs.resize(RQ);
+  for(auto q:qs){
+    vector<int> xs; for(int x=0;x<N;x++) if(x!=w&&correct[x]&&pb.itype[x]==t) xs.push_back(x);
+    sort(xs.begin(),xs.end(),[&](int a,int b){return l1(S.pos[a],q)<l1(S.pos[b],q);}); if((int)xs.size()>RM)xs.resize(RM);
+    for(int x:xs){
+      set<P3> sv=freeT[t]; freeT[t]={q}; bool ua=useAllowed; useAllowed=false; vector<int> px; P3 g; bool ok=bfs_path(x,maxd,maxst,px,g); freeT[t]=sv; if(!ok){useAllowed=ua;continue;}
+      P3 xo=S.pos[x]; size_t c0=cmds.size(); for(int m:px){S.move(x,m);cmds.push_back({x,m});}
+      freeT[t].erase(q); freeT[t].insert(xo);
+      vector<int> pw; P3 g2; if(bfs_path(w,maxd,maxst,pw,g2)){ for(int m:pw){S.move(w,m);cmds.push_back({w,m});} freeT[t].erase(S.pos[w]); correct[w]=1; useAllowed=ua; hist.push_back({(int)cmds.size(),ncorrect()}); fprintf(stderr,"relay %d via %d -> correct %d\n",w,x,ncorrect()); return true; }
+      for(int j=(int)px.size()-1;j>=0;j--){ if(!S.move(x,px[j]^1)){fprintf(stderr,"relay rollback fail\n");exit(1);} cmds.pop_back(); }
+      freeT[t].erase(xo); freeT[t].insert(q); useAllowed=ua; (void)c0;
+    }
+  }
+  return false;
+}
+bool relay_round(int maxd,int maxst,vector<pair<int,int>>&hist){ bool imp=false; for(int w=0;w<N;w++){ if(correct[w]||freeT[pb.itype[w]].empty())continue; if(relay(w,maxd,maxst,hist)){imp=true; string cn=string(getenv("CKPT")?getenv("CKPT"):"ck.ckpt"); FILE*fc=fopen(cn.c_str(),"w"); for(auto&c:cmds)fprintf(fc,"%d %d\n",c.first,c.second); fclose(fc);} } return imp; }
 bool dig_round(int maxSub,int rad,int parkDist,int maxd,int maxst,vector<pair<int,int>>&hist){
   bool imp=false;
-  for(int w=0;w<N;w++){ if(correct[w]||freeT[pb.itype[w]].empty())continue; if(dig(w,maxSub,rad,parkDist,maxd,maxst,hist)){imp=true; fprintf(stderr,"dug %d -> correct %d\n",w,ncorrect());} }
+  for(int w=0;w<N;w++){ if(correct[w]||freeT[pb.itype[w]].empty())continue; if(dig(w,maxSub,rad,parkDist,maxd,maxst,hist)){imp=true; fprintf(stderr,"dug %d -> correct %d\n",w,ncorrect()); if(getenv("STOPAT")&&ncorrect()>=atoi(getenv("STOPAT"))){ FILE*fo=fopen(getenv("STOPOUT"),"w"); for(auto&c:cmds)fprintf(fo,"%d %d\n",c.first,c.second); fclose(fo); fprintf(stderr,"STOPAT reached\n"); exit(0);}  {string cn=string(getenv("CKPT")?getenv("CKPT"):"ck.ckpt"); FILE*fc=fopen(cn.c_str(),"w"); for(auto&c:cmds)fprintf(fc,"%d %d\n",c.first,c.second); fclose(fc);}} }
   return imp;
 }
+bool moveTo(int s,const P3&c,int maxd,int maxst,vector<int>&path){ int t=pb.itype[s]; set<P3> sv=freeT[t]; freeT[t]={c}; bool ua=useAllowed; useAllowed=false; P3 g; bool ok=bfs_path(s,maxd,maxst,path,g); freeT[t]=sv; useAllowed=ua; return ok; }
+int gBefore=0; P3 gWo;
+int compsOf(int w,map<P3,int>&comp,vector<int>&csz){ comp.clear(); csz.clear(); int nc=0;
+  for(int d=0;d<6;d++){ P3 b={S.pos[w][0]+D6[d][0],S.pos[w][1]+D6[d][1],S.pos[w][2]+D6[d][2]}; if(S.at(b[0],b[1],b[2])<0||comp.count(b))continue; int sz=0; deque<P3> dq; dq.push_back(b); comp[b]=nc;
+    while(!dq.empty()){P3 a=dq.front();dq.pop_front();sz++; for(int e=0;e<6;e++){P3 x={a[0]+D6[e][0],a[1]+D6[e][1],a[2]+D6[e][2]}; if(x==S.pos[w]||comp.count(x)||S.at(x[0],x[1],x[2])<0)continue; comp[x]=nc; dq.push_back(x);} }
+    csz.push_back(sz); nc++; }
+  return nc; }
+bool bridgeRec(int w,int depth,vector<int>&sup,int maxd,int maxst){
+  map<P3,int> comp; vector<int> csz; int nc=compsOf(w,comp,csz);
+  if(nc<2){ if(depth==0) return false;
+    vector<int> pw; P3 g; bool wok=false; int BMS=getenv("BRMAXST")?atoi(getenv("BRMAXST")):200000;
+    if(bfs_path(w,200,BMS,pw,g)){ for(int m:pw){S.move(w,m);cmds.push_back({w,m});} freeT[pb.itype[w]].erase(S.pos[w]); correct[w]=1; wok=true; }
+    else { int lm=0; for(int m=0;m<6;m++){ if(S.move(w,m)){lm++;S.move(w,m^1);} } if(lm>0 && getenv("BRDIG")){ vector<pair<int,int>> h2; if(dig(w,atoi(getenv("BRDIG")),3,5,40,20000,h2)) wok=true; } }
+    if(!wok) return false;
+    { auto itw=tt_at.find(gWo); if(itw!=tt_at.end() && S.at(gWo[0],gWo[1],gWo[2])<0){ int tw2=itw->second; vector<int> xs; for(int x=0;x<N;x++) if(!correct[x]&&x!=w&&pb.itype[x]==tw2&&find(sup.begin(),sup.end(),x)==sup.end()) xs.push_back(x);
+        sort(xs.begin(),xs.end(),[&](int a,int b){return l1(S.pos[a],gWo)<l1(S.pos[b],gWo);});
+        for(int x:xs){ vector<int> px; if(moveTo(x,gWo,200,400000,px)){ for(int m:px){S.move(x,m);cmds.push_back({x,m});} freeT[tw2].erase(gWo); correct[x]=1; if(getenv("BRDBG"))fprintf(stderr,"  filled old cell with %d\n",x); break; } } } }
+    for(int k=(int)sup.size()-1;k>=0;k--){ int s=sup[k]; if(correct[s])continue; if(freeT[pb.itype[s]].count(S.pos[s])){ freeT[pb.itype[s]].erase(S.pos[s]); correct[s]=1; continue; } vector<int> pr; P3 g2; if(!bfs_path(s,maxd,maxst,pr,g2)) continue; for(int m:pr){S.move(s,m);cmds.push_back({s,m});} freeT[pb.itype[s]].erase(S.pos[s]); correct[s]=1; }
+    int drop=getenv("BRDROP")?atoi(getenv("BRDROP")):0; return ncorrect()>=gBefore+1-drop; }
+  int MAXB=getenv("BRMAX")?atoi(getenv("BRMAX")):3; if(depth>=MAXB) return false;
+  int big=max_element(csz.begin(),csz.end())-csz.begin(); int sm=-1; for(int k=0;k<nc;k++) if(k!=big&&(sm<0||csz[k]<csz[sm]))sm=k;
+  vector<P3> cells; set<P3> seenc;
+  for(auto&kv:comp){ if(kv.second!=sm)continue; for(int e=0;e<6;e++){ P3 c={kv.first[0]+D6[e][0],kv.first[1]+D6[e][1],kv.first[2]+D6[e][2]}; if(S.at(c[0],c[1],c[2])>=0||c==S.pos[w]||seenc.count(c))continue; seenc.insert(c);
+      bool tb=false; for(int f=0;f<6;f++){P3 y={c[0]+D6[f][0],c[1]+D6[f][1],c[2]+D6[f][2]}; auto it=comp.find(y); if(it!=comp.end()&&it->second!=sm)tb=true;} if(tb)cells.push_back(c);} }
+  int BS=getenv("BRS")?atoi(getenv("BRS")):30; int K=getenv("BRK")?atoi(getenv("BRK")):3; int succ=0;
+  for(auto&c:cells){
+    vector<int> ss; for(int s=0;s<N;s++){ if(s==w)continue; if(find(sup.begin(),sup.end(),s)!=sup.end())continue; auto it=comp.find(S.pos[s]); if(it!=comp.end()&&it->second!=big)continue; ss.push_back(s);} 
+    bool ctg=false; {auto it2=tt_at.find(c); ctg=(it2!=tt_at.end());} sort(ss.begin(),ss.end(),[&](int a,int b){ auto it2=tt_at.find(c); int ma=(it2!=tt_at.end()&&it2->second==pb.itype[a])?-1000:0; int mb=(it2!=tt_at.end()&&it2->second==pb.itype[b])?-1000:0; int ka=ma+l1(S.pos[a],c)+(correct[a]?0:-1); int kb=mb+l1(S.pos[b],c)+(correct[b]?0:-1); return ka<kb;}); (void)ctg; if((int)ss.size()>BS)ss.resize(BS);
+    for(int s:ss){
+      vector<char> corr0=correct; vector<set<P3>> free0=freeT; size_t c0=cmds.size();
+      P3 so=S.pos[s]; vector<int> ps; if(!moveTo(s,c,getenv("BRMD")?atoi(getenv("BRMD")):maxd,getenv("BRMS")?atoi(getenv("BRMS")):maxst,ps))continue;
+      for(int m:ps){S.move(s,m);cmds.push_back({s,m});}
+      if(correct[s]){ correct[s]=0; freeT[pb.itype[s]].insert(so); }
+      sup.push_back(s);
+      if(bridgeRec(w,depth+1,sup,maxd,maxst)) return true;
+      sup.pop_back();
+      while(cmds.size()>c0){ auto pr=cmds.back(); if(!S.move(pr.first,pr.second^1)){fprintf(stderr,"bridge rollback fail\n");exit(1);} cmds.pop_back(); } correct=corr0; freeT=free0;
+      if(++succ>=K) return false;
+    }
+  }
+  return false;
+}
+bool bridge(int w,int maxd,int maxst,vector<pair<int,int>>&hist){
+  vector<int> sup; gBefore=ncorrect(); gWo=S.pos[w]; bool ua=useAllowed; useAllowed=false; bool ok=bridgeRec(w,0,sup,maxd,maxst); useAllowed=ua;
+  if(ok){ hist.push_back({(int)cmds.size(),ncorrect()}); fprintf(stderr,"bridged %d with %zu supporters -> correct %d\n",w,sup.size(),ncorrect()); }
+  return ok; }
+bool bridge_round(int maxd,int maxst,vector<pair<int,int>>&hist){ bool imp=false; for(int w=0;w<N;w++){ if(correct[w]||freeT[pb.itype[w]].empty())continue; if(bridge(w,maxd,maxst,hist)){imp=true; string cn=string(getenv("CKPT")?getenv("CKPT"):"ck.ckpt"); FILE*fc=fopen(cn.c_str(),"w"); for(auto&c:cmds)fprintf(fc,"%d %d\n",c.first,c.second); fclose(fc);} } return imp; }
+bool bridgeL(int w,int maxd,int maxst,vector<pair<int,int>>&hist){
+  // components without w
+  map<P3,int> comp; int nc=0; vector<int> csz;
+  for(int d=0;d<6;d++){ P3 b={S.pos[w][0]+D6[d][0],S.pos[w][1]+D6[d][1],S.pos[w][2]+D6[d][2]}; if(S.at(b[0],b[1],b[2])<0||comp.count(b))continue; int sz=0; deque<P3> dq; dq.push_back(b); comp[b]=nc;
+    while(!dq.empty()){P3 a=dq.front();dq.pop_front();sz++; for(int e=0;e<6;e++){P3 x={a[0]+D6[e][0],a[1]+D6[e][1],a[2]+D6[e][2]}; if(x==S.pos[w]||comp.count(x)||S.at(x[0],x[1],x[2])<0)continue; comp[x]=nc; dq.push_back(x);} }
+    csz.push_back(sz); nc++; }
+  if(nc<2) return false;
+  int big=max_element(csz.begin(),csz.end())-csz.begin();
+  // candidate cells: empty, adjacent to a small-comp cube and to a big-comp cube
+  vector<P3> cells; set<P3> seenc;
+  for(auto&kv:comp){ if(kv.second==big)continue; for(int e=0;e<6;e++){ P3 c={kv.first[0]+D6[e][0],kv.first[1]+D6[e][1],kv.first[2]+D6[e][2]}; if(S.at(c[0],c[1],c[2])>=0||c==S.pos[w]||seenc.count(c))continue; seenc.insert(c);
+      bool tb=false; for(int f=0;f<6;f++){P3 y={c[0]+D6[f][0],c[1]+D6[f][1],c[2]+D6[f][2]}; auto it=comp.find(y); if(it!=comp.end()&&it->second==big)tb=true;} if(tb)cells.push_back(c);} }
+  int BS=getenv("BRS")?atoi(getenv("BRS")):30;
+  fprintf(stderr,"bridge w=%d comps=%d cells=%zu\n",w,nc,cells.size());
+  for(auto&c:cells){
+    vector<int> ss; for(int s=0;s<N;s++){ if(s==w)continue; auto it=comp.find(S.pos[s]); if(it!=comp.end()&&it->second!=big)continue; ss.push_back(s);} 
+    sort(ss.begin(),ss.end(),[&](int a,int b){ int ka=l1(S.pos[a],c)+(correct[a]?0:-1); int kb=l1(S.pos[b],c)+(correct[b]?0:-1); return ka<kb;}); if((int)ss.size()>BS)ss.resize(BS);
+    for(int s:ss){
+      vector<char> corr0=correct; vector<set<P3>> free0=freeT; size_t c0=cmds.size();
+      vector<pair<int,int>> done;
+      auto rollback=[&](){ while(cmds.size()>c0){ auto pr=cmds.back(); if(!S.move(pr.first,pr.second^1)){fprintf(stderr,"bridge rollback fail\n");exit(1);} cmds.pop_back(); } correct=corr0; freeT=free0; };
+      P3 so=S.pos[s]; vector<int> ps; if(!moveTo(s,c,maxd,maxst,ps))continue;
+      for(int m:ps){S.move(s,m);cmds.push_back({s,m});}
+      if(correct[s]){ correct[s]=0; freeT[pb.itype[s]].insert(so); }
+      vector<int> pw; P3 g; bool ua=useAllowed; useAllowed=false;
+      bool wok=false; int BMS=getenv("BRMAXST")?atoi(getenv("BRMAXST")):200000;
+      if(bfs_path(w,200,BMS,pw,g)){ for(int m:pw){S.move(w,m);cmds.push_back({w,m});} freeT[pb.itype[w]].erase(S.pos[w]); correct[w]=1; wok=true; }
+      else { int lm=0; for(int m=0;m<6;m++){ if(S.move(w,m)){lm++;S.move(w,m^1);} } if(lm>0 && getenv("BRDIG")){ vector<pair<int,int>> h2; if(dig(w,atoi(getenv("BRDIG")),3,5,40,20000,h2)) wok=true; } }
+      if(!wok){ useAllowed=ua; rollback(); continue; }
+      if(!correct[s]){ vector<int> pr; P3 g2; if(!bfs_path(s,maxd,maxst,pr,g2)){ useAllowed=ua; rollback(); continue; } for(int m:pr){S.move(s,m);cmds.push_back({s,m});} freeT[pb.itype[s]].erase(S.pos[s]); correct[s]=1; }
+      useAllowed=ua; hist.push_back({(int)cmds.size(),ncorrect()}); fprintf(stderr,"bridged %d via %d -> correct %d\n",w,s,ncorrect()); return true;
+    }
+  }
+  return false;
+}
+bool bridgeL_round(int maxd,int maxst,vector<pair<int,int>>&hist){ bool imp=false; for(int w=0;w<N;w++){ if(correct[w]||freeT[pb.itype[w]].empty())continue; if(bridgeL(w,maxd,maxst,hist)){imp=true; string cn=string(getenv("CKPT")?getenv("CKPT"):"ck.ckpt"); FILE*fc=fopen(cn.c_str(),"w"); for(auto&c:cmds)fprintf(fc,"%d %d\n",c.first,c.second); fclose(fc);} } return imp; }
+
 int main(int argc,char**argv){
   pb.load(argv[1]); N=pb.N; int maxd=argc>2?atoi(argv[2]):60; int maxst=argc>3?atoi(argv[3]):20000;
   string mode=argc>5?argv[5]:"near"; double win=argc>6?atof(argv[6]):0.2; int seed=argc>7?atoi(argv[7]):0; double noise=argc>8?atof(argv[8]):0; mt19937 rng(seed); uniform_real_distribution<double> U(0,1); S.init(pb);
@@ -263,6 +384,29 @@ int main(int argc,char**argv){
   freeT.assign(pb.T,{}); for(int i=0;i<N;i++){freeT[pb.ttype[i]].insert(pb.target[i]);tt_at[pb.target[i]]=pb.ttype[i];}
   correct.assign(N,0);
   for(int c=0;c<N;c++){auto it=tt_at.find(S.pos[c]);if(it!=tt_at.end()&&it->second==pb.itype[c]){correct[c]=1;freeT[pb.itype[c]].erase(S.pos[c]);}}
+  if(getenv("RESUME")){ ifstream rf(getenv("RESUME")); int cc,mm; while(rf>>cc>>mm){ if(!S.move(cc,mm)){fprintf(stderr,"resume move fail\n");exit(1);} cmds.push_back({cc,mm}); }
+    freeT.assign(pb.T,{}); for(int i=0;i<N;i++)freeT[pb.ttype[i]].insert(pb.target[i]); correct.assign(N,0);
+    for(int c=0;c<N;c++){auto it=tt_at.find(S.pos[c]);if(it!=tt_at.end()&&it->second==pb.itype[c]){correct[c]=1;freeT[pb.itype[c]].erase(S.pos[c]);}}
+    fprintf(stderr,"resumed %zu cmds correct %d\n",cmds.size(),ncorrect()); }
+  if(getenv("PRIO")){ ifstream pf(getenv("PRIO")); int o; while(pf>>o) prioS.insert(o); fprintf(stderr,"prio %zu\n",prioS.size()); }
+  if(getenv("PSEUDO")){ int w,R; sscanf(getenv("PSEUDO"),"%d %d",&w,&R); int t=pb.itype[w]; vector<P3> ps; P3 p0=S.pos[w];
+    for(int dx=-R;dx<=R;dx++)for(int dy=-R;dy<=R;dy++)for(int dz=-R;dz<=R;dz++){ if(abs(dx)+abs(dy)+abs(dz)>R||abs(dx)+abs(dy)+abs(dz)<2)continue; P3 q={p0[0]+dx,p0[1]+dy,p0[2]+dz}; if(S.at(q[0],q[1],q[2])>=0||tt_at.count(q))continue; bool adj=false; for(int d=0;d<6;d++) if(S.at(q[0]+D6[d][0],q[1]+D6[d][1],q[2]+D6[d][2])>=0) adj=true; if(adj) ps.push_back(q);} 
+    fprintf(stderr,"pseudo cells %zu\n",ps.size());
+    set<P3> sv=freeT[t]; for(auto&q:ps) freeT[t].insert(q); for(auto&q:sv) if(!ps.empty()) {} 
+    // keep only pseudo targets so w goes there
+    freeT[t].clear(); for(auto&q:ps) freeT[t].insert(q);
+    vector<pair<int,int>> h2; useAllowed=false; int D=getenv("DIG")?atoi(getenv("DIG")):3;
+    bool ok=false; vector<int> pth; P3 gg; if(bfs_path(w,100,1000000,pth,gg)){ for(int m:pth){S.move(w,m);cmds.push_back({w,m});} ok=true; }
+    if(!ok) ok=dig(w,D,getenv("DIGRAD")?atoi(getenv("DIGRAD")):3,getenv("PARK")?atoi(getenv("PARK")):5,100,200000,h2);
+    fprintf(stderr,"pseudo move ok=%d pos %d %d %d\n",(int)ok,S.pos[w][0],S.pos[w][1],S.pos[w][2]);
+    FILE*f=fopen(argv[4],"w"); for(auto&c:cmds)fprintf(f,"%d %d\n",c.first,c.second); fclose(f); {string en=string(argv[4])+".end"; FILE*fe=fopen(en.c_str(),"w"); for(int c=0;c<N;c++)fprintf(fe,"%d %d %d\n",S.pos[c][0],S.pos[c][1],S.pos[c][2]); fclose(fe);} exit(0); }
+  if(getenv("DIAG")){ for(int w=0;w<N;w++){ if(correct[w])continue; int lm=0; for(int m=0;m<6;m++){ if(S.move(w,m)){lm++; S.move(w,m^1);} } int nb=0; for(int d=0;d<6;d++) if(S.at(S.pos[w][0]+D6[d][0],S.pos[w][1]+D6[d][1],S.pos[w][2]+D6[d][2])>=0)nb++; auto occ=[&](int x,int y,int z){int a2=S.at(x,y,z);return a2>=0&&a2!=w&&false;}; fprintf(stderr,"w=%d type %d pos %d %d %d legal=%d nb=%d reachEmpty=%d cut=%d\n",w,pb.itype[w],S.pos[w][0],S.pos[w][1],S.pos[w][2],lm,nb,(int)reach_occ(w,S.pos[w],occ,100000),0); } exit(0); }
+  if(getenv("EVICTF")){ int R=atoi(getenv("EVICTF")); vector<P3> fr; for(int t=0;t<pb.T;t++)for(auto&q:freeT[t])fr.push_back(q); int ne=0; for(int o=0;o<N;o++){ if(!correct[o])continue; bool near=false; for(auto&q:fr) if(l1(S.pos[o],q)<=R){near=true;break;} if(near){correct[o]=0;freeT[pb.itype[o]].insert(S.pos[o]);evictedS.insert(o);ne++;} } fprintf(stderr,"evictF %d\n",ne); }
+  if(getenv("EVICTC")){ int SL=atoi(getenv("EVICTC")); int ne=0; vector<int> st; for(int c=0;c<N;c++)if(!correct[c])st.push_back(c);
+    for(int w:st){ int tw=pb.itype[w]; if(freeT[tw].empty())continue; P3 bf; int bd=1e9; for(auto&f:freeT[tw]){int d=l1(S.pos[w],f); if(d<bd){bd=d;bf=f;}}
+      for(int o=0;o<N;o++){ if(!correct[o]||pb.itype[o]!=tw)continue; if(l1(S.pos[o],S.pos[w])+l1(S.pos[o],bf)<=bd+2*SL){correct[o]=0;freeT[tw].insert(S.pos[o]);evictedS.insert(o);ne++;} } }
+    fprintf(stderr,"evictC %d\n",ne); }
+  if(getenv("EVICTR")){ int R=atoi(getenv("EVICTR")); vector<int> st; for(int c=0;c<N;c++)if(!correct[c])st.push_back(c); int ne=0; for(int o=0;o<N;o++){ if(!correct[o])continue; bool near=false; for(int c:st) if(l1(S.pos[o],S.pos[c])<=R){near=true;break;} if(near){correct[o]=0;freeT[pb.itype[o]].insert(S.pos[o]);evictedS.insert(o);ne++;} } fprintf(stderr,"evictR %d\n",ne); }
   if(argc>12){ ifstream ef(argv[12]); int o; int ne=0; while(ef>>o){ if(o>=0&&o<N&&correct[o]){correct[o]=0;freeT[pb.itype[o]].insert(S.pos[o]);evictedS.insert(o);ne++;} } fprintf(stderr,"evicted %d\n",ne); }
   vector<pair<int,int>> hist{{0,ncorrect()}};
   bool progress=true; int DIG=getenv("DIG")?atoi(getenv("DIG")):0; int UR=argc>9?atoi(argv[9]):2;
@@ -271,18 +415,21 @@ int main(int argc,char**argv){
     if(mode=="conn"){ map<P3,int> dummy; rk=connRank(noise,rng,dummy); }
     if(mode!="near"){ vector<pair<double,P3>> fr; for(int t=0;t<pb.T;t++)for(auto&q:freeT[t])fr.push_back({rk[q],q}); sort(fr.begin(),fr.end()); size_t k=max<size_t>(1,(size_t)(fr.size()*win)); allowedS.clear(); for(size_t i=0;i<k&&i<fr.size();i++)allowedS.insert(fr[i].second); useAllowed=true; }
     vector<pair<int,int>> keys;
-    for(int c=0;c<N;c++){ if(correct[c]||freeT[pb.itype[c]].empty())continue; int best=1e9;for(auto&q:freeT[pb.itype[c]])best=min(best,l1(S.pos[c],q)); keys.push_back({(tt_at.count(S.pos[c])?0:100000)+best+(int)(noise*3*U(rng)),c});}
+    for(int c=0;c<N;c++){ if(correct[c]||freeT[pb.itype[c]].empty())continue; int best=1e9;for(auto&q:freeT[pb.itype[c]])best=min(best,l1(S.pos[c],q)); keys.push_back({(prioS.count(c)?-1000000:0)+(tt_at.count(S.pos[c])?0:100000)+best+(int)(noise*3*U(rng)),c});}
     sort(keys.begin(),keys.end());
     for(auto&kc:keys){int c=kc.second; if(correct[c])continue; vector<int> path;P3 goal;
-      if(!bfs_path(c,maxd,maxst,path,goal))continue;
+      bool ua=useAllowed; if(prioS.count(c)) useAllowed=false; bool okp=bfs_path(c,maxd,maxst,path,goal); useAllowed=ua; if(!okp)continue;
       for(int m:path){S.move(c,m);cmds.push_back({c,m});}
       freeT[pb.itype[c]].erase(S.pos[c]);correct[c]=1;progress=true;hist.push_back({(int)cmds.size(),ncorrect()});
     }
     if(!progress&&mode!="near"&&win<1.0){win=min(1.0,win*2);progress=true;}
     if(!progress&&!evictedS.empty()){ for(int o:evictedS){ if(!correct[o]){ auto it=tt_at.find(S.pos[o]); if(it!=tt_at.end()&&it->second==pb.itype[o]&&freeT[pb.itype[o]].count(S.pos[o])){correct[o]=1;freeT[pb.itype[o]].erase(S.pos[o]);hist.push_back({(int)cmds.size(),ncorrect()});} } } evictedS.clear(); progress=true; }
-    if(!progress&&DIG>0){ useAllowed=false; if(dig_round(DIG,getenv("DIGRAD")?atoi(getenv("DIGRAD")):3,getenv("PARK")?atoi(getenv("PARK")):5,40,20000,hist)){progress=true;} }
+    if(!progress&&getenv("BRLEG")){ useAllowed=false; if(bridgeL_round(maxd,maxst,hist))progress=true; }
+    if(!progress&&getenv("BRIDGE")){ useAllowed=false; if(bridge_round(maxd,maxst,hist))progress=true; }
+    if(!progress&&getenv("RELAY")){ useAllowed=false; if(relay_round(maxd,maxst,hist))progress=true; }
+    if(!progress&&DIG>0){ useAllowed=false; if(dig_round(DIG,getenv("DIGRAD")?atoi(getenv("DIGRAD")):3,getenv("PARK")?atoi(getenv("PARK")):5,getenv("DIGMD")?atoi(getenv("DIGMD")):40,getenv("DIGMS")?atoi(getenv("DIGMS")):20000,hist)){progress=true;} }
     if(!progress){ useAllowed=false; if(unstick_round(maxd,maxst,hist,UR)){progress=true;} }
-    fprintf(stderr,"pass: correct %d cmds %zu\n",ncorrect(),cmds.size());
+    fprintf(stderr,"pass: correct %d cmds %zu\n",ncorrect(),cmds.size());{string cn=string(argc>4?argv[4]:"ck")+".ckpt"; FILE*fc=fopen(cn.c_str(),"w"); for(auto&c:cmds)fprintf(fc,"%d %d\n",c.first,c.second); fclose(fc);}
   }
   {string en=string(argc>4?argv[4]:"/dev/null")+".stuck"; FILE*fs=fopen(en.c_str(),"w"); for(int c=0;c<N;c++) if(!correct[c]) fprintf(fs,"%d %d %d %d %d\n",c,pb.itype[c],S.pos[c][0],S.pos[c][1],S.pos[c][2]); fclose(fs);}
   int bl=0;double bs=-1e9;for(auto&h:hist){double s=0.9*h.second/N-0.1*(double)h.first/pb.maxc;if(s>bs){bs=s;bl=h.first;}}
