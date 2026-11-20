@@ -90,6 +90,7 @@ def run_stage(st, prob_file, out, resume=None, evict_file=None):
         return
     env = dict(os.environ)
     env.update(st["env"])
+    env["CKPT"] = out + ".ckpt"
     if resume:
         env["RESUME"] = resume
     if "prio" in st:

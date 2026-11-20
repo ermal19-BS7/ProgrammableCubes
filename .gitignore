@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.nbc
+*.nbi
+reverse_cpp/work/
+reverse_cpp/*.exe
+reverse_cpp/reverse_solver
+Challenge/ck.ckpt
